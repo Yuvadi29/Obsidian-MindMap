@@ -1,6 +1,7 @@
 import { GraphEngine } from "./core/graph";
 import { MarkdownParser } from "./core/parser";
 import { VaultWatcher } from "./core/watcher";
+import { startServer } from "./server";
 
 const VAULT_PATH = "/Users/adityatrivedi/Desktop/Obsidian/Wiki-Base";
 
@@ -22,5 +23,6 @@ watcher.onEvent((event, path) => {
 
     graph.updateFromParsed(parsed);
     graph.printGraph();
+    startServer(graph);
 });
 

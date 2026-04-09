@@ -65,4 +65,17 @@ export class GraphEngine {
 
         console.log("\n------------------\n");
     }
+
+    getGraphData() {
+        return {
+            nodes: Array.from(this.nodes.values()).map(n => ({
+                id: n.id,
+                tags: n.tags,
+            })),
+            links: this.edges.map(e => ({
+                source: e.source,
+                target: e.target,
+            })),
+        }
+    }
 }

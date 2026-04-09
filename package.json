@@ -12,9 +12,14 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "chokidar": "^5.0.0"
+    "chokidar": "^5.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "react-force-graph": "^1.48.2"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^25.5.2",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.2"
