@@ -185,3 +185,19 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
+
+.focus-btn {
+  margin-bottom: 20px;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: #6366f1;
+  color: white;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.focus-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);
+}

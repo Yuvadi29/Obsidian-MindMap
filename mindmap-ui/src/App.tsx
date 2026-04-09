@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import "./App.css";
 
@@ -21,6 +21,7 @@ function App() {
   const [selectedNode, setSelectedNode] = useState<NodeType | null>(null);
   const [hoverNode, setHoverNode] = useState<NodeType | null>(null);
   const [search, setSearch] = useState("");
+  const [focusMode, setFocusMode] = useState(false);
 
   const fgRef = useRef<any>();
 
@@ -32,21 +33,46 @@ function App() {
       .catch((err) => console.error("Could not fetch graph data", err));
   }, []);
 
-  // 🔹 Build adjacency map (IMPORTANT)
-  const adjacency = new Map<string, Set<string>>();
+  // 🔹 Build adjacency + reverse adjacency
+  const { adjacency, reverseAdjacency } = useMemo(() => {
+    const adj = new Map<string, Set<string>>();
+    const rev = new Map<string, Set<string>>();
 
-  data.links.forEach((link) => {
-    if (!adjacency.has(link.source)) adjacency.set(link.source, new Set());
-    if (!adjacency.has(link.target)) adjacency.set(link.target, new Set());
+    data.links.forEach((link) => {
+      if (!adj.has(link.source)) adj.set(link.source, new Set());
+      if (!adj.has(link.target)) adj.set(link.target, new Set());
 
-    adjacency.get(link.source)!.add(link.target);
-    adjacency.get(link.target)!.add(link.source);
-  });
+      if (!rev.has(link.target)) rev.set(link.target, new Set());
 
-  // 🔹 Highlight logic
-  const isNeighbor = (node: NodeType, other: NodeType) => {
-    return adjacency.get(node.id)?.has(other.id);
-  };
+      adj.get(link.source)!.add(link.target);
+      adj.get(link.target)!.add(link.source);
+
+      rev.get(link.target)!.add(link.source);
+    });
+
+    return { adjacency: adj, reverseAdjacency: rev };
+  }, [data]);
+
+  // 🔹 Focus Mode Graph Filter
+  const filteredData = useMemo(() => {
+    if (!focusMode || !selectedNode) return data;
+
+    const connected = new Set<string>();
+    connected.add(selectedNode.id);
+
+    adjacency.get(selectedNode.id)?.forEach((n) => connected.add(n));
+    reverseAdjacency.get(selectedNode.id)?.forEach((n) =>
+      connected.add(n)
+    );
+
+    return {
+      nodes: data.nodes.filter((n) => connected.has(n.id)),
+      links: data.links.filter(
+        (l) =>
+          connected.has(l.source) && connected.has(l.target)
+      ),
+    };
+  }, [focusMode, selectedNode, data, adjacency, reverseAdjacency]);
 
   // 🔹 Search focus
   const handleSearch = () => {
@@ -60,6 +86,15 @@ function App() {
       setSelectedNode(node);
     }
   };
+
+  // 🔹 Helpers
+  const isNeighbor = (node: NodeType, other: NodeType) =>
+    adjacency.get(node.id)?.has(other.id);
+
+  const backlinks =
+    selectedNode && reverseAdjacency.get(selectedNode.id)
+      ? Array.from(reverseAdjacency.get(selectedNode.id)!)
+      : [];
 
   return (
     <div className="app-container">
@@ -78,14 +113,22 @@ function App() {
           <button onClick={handleSearch}>Go</button>
         </div>
 
+        {/* Focus Toggle */}
+        <button
+          className="focus-btn"
+          onClick={() => setFocusMode(!focusMode)}
+        >
+          {focusMode ? "Disable Focus" : "Enable Focus"}
+        </button>
+
         <div className="stat-box">
           <div className="stat-label">Nodes</div>
-          <div className="stat-value">{data.nodes.length}</div>
+          <div className="stat-value">{filteredData.nodes.length}</div>
         </div>
 
         <div className="stat-box">
           <div className="stat-label">Links</div>
-          <div className="stat-value">{data.links.length}</div>
+          <div className="stat-value">{filteredData.links.length}</div>
         </div>
       </div>
 
@@ -93,15 +136,13 @@ function App() {
       <div className="graph-container">
         <ForceGraph2D
           ref={fgRef}
-          graphData={data}
+          graphData={filteredData}
           nodeLabel="id"
           backgroundColor="rgba(0,0,0,0)"
 
-          // 🔥 Better physics
           d3VelocityDecay={0.3}
           d3AlphaDecay={0.02}
 
-          // 🔥 Node styling
           nodeCanvasObject={(node: any, ctx, globalScale) => {
             const label = node.id;
             const fontSize = 12 / globalScale;
@@ -113,7 +154,6 @@ function App() {
               hoverNode &&
               (isNeighbor(hoverNode, node) || hoverNode.id === node.id);
 
-            // Fade non-related nodes
             const opacity = hoverNode
               ? isConnected
                 ? 1
@@ -138,7 +178,6 @@ function App() {
             ctx.globalAlpha = 1;
           }}
 
-          // 🔥 Link styling
           linkColor={(link: any) => {
             if (!hoverNode) return "rgba(255,255,255,0.2)";
             return link.source.id === hoverNode.id ||
@@ -155,7 +194,6 @@ function App() {
               : 1
           }
 
-          // 🔥 Interactions
           onNodeClick={(node: any) => setSelectedNode(node)}
           onNodeHover={(node: any) => setHoverNode(node)}
         />
@@ -167,13 +205,24 @@ function App() {
           <div className="node-details">
             <h3>{selectedNode.id}</h3>
 
-            <p className="section-title">Connections</p>
+            {/* Outgoing */}
+            <p className="section-title">Outgoing Links</p>
             <ul>
               {data.links
                 .filter((l) => l.source === selectedNode.id)
                 .map((l, i) => (
                   <li key={i}>{l.target}</li>
                 ))}
+            </ul>
+
+            {/* Backlinks */}
+            <p className="section-title">Backlinks</p>
+            <ul>
+              {backlinks.length ? (
+                backlinks.map((b, i) => <li key={i}>{b}</li>)
+              ) : (
+                <li>No backlinks</li>
+              )}
             </ul>
 
             {/* Tags */}
